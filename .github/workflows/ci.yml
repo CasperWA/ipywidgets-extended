@@ -48,6 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         node-version: ['10', '12']
+        python-version: [3.9]
 
     steps:
     - name: Checkout repository
@@ -57,7 +58,20 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: ${{ matrix.node-version}}
-        check-latest: true
+
+    - name: Set up Python ${{ matrix.python-version}}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version}}
 
     - name: Check build and installation of PyPI source distribution
-      uses: CasperWA/check-sdist-action@v1
+      env:
+        SDIST_DIR: sdist_action
+      run: |
+        python setup.py -v sdist -d ${SDIST_DIR}
+        SDIST_FILE=$( ls ${SDIST_DIR}/ )
+        ORIGINAL_PWD=$(pwd)
+
+        mkdir -p /tmp/installation_dir
+        cd /tmp/installation_dir
+        pip install ${ORIGINAL_PWD}/${SDIST_DIR}/${SDIST_FILE}
