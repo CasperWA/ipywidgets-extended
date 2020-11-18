@@ -1,3 +1,6 @@
+"""Related to jupyter nbextensions"""
+
+
 def _jupyter_nbextension_paths():
     return [
         {

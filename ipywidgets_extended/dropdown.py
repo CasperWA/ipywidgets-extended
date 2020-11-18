@@ -1,10 +1,11 @@
+"""Dropdown Widget Extension"""
 from typing import List
 
 from ipywidgets._version import __jupyter_widgets_controls_version__
 from ipywidgets.widgets.widget_selection import Dropdown
 from traitlets import traitlets
 
-from ipywidget_extended.version import __version__
+from ipywidgets_extended.version import __version__
 
 
 __all__ = ("DropdownExtended",)
