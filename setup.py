@@ -1,7 +1,7 @@
 from pathlib import Path
 from setuptools import setup, find_packages
 
-from .setupbase import (
+from setupbase import (
     create_cmdclass,
     install_npm,
     ensure_targets,
