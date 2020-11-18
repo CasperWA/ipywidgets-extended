@@ -44,9 +44,20 @@ jobs:
   build-package:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['10', '12']
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
+
+    - name: Install Node
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version}}
+        check-latest: true
 
     - name: Check build and installation of PyPI source distribution
       uses: CasperWA/check-sdist-action@v1
