@@ -1,0 +1,21 @@
+*.pyc
+*.swo
+*.swp
+~*
+*~
+*.egg*
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints
+.*.ipynb
+
+# NPM
+**/node_modules/
+ipywidgets_extended/nbextension/static/index.*
+ipywidgets_extended/labextension/*.tgz
+ipywidgets_extended/labextension
+package-lock.json
+
+lib/
+dist/
