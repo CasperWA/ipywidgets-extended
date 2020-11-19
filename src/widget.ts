@@ -1,4 +1,4 @@
-import { ISerializers } from '@jupyter-widgets/base';
+import { ISerializers, WidgetView } from '@jupyter-widgets/base';
 import { DropdownModel, DropdownView } from '@jupyter-widgets/controls';
 
 import { MODULE_NAME, MODULE_VERSION } from './version';
@@ -29,10 +29,15 @@ class DropdownExtendedModel extends DropdownModel {
 
 export
 class DropdownExtendedView extends DropdownView {
+    initialize(parameters: WidgetView.InitializeParameters): void {
+        super.initialize(parameters);
+        this.listenTo(this.model, 'change:_disabled_options_labels', () => this._updateOptions());
+    }
+
     _updateOptions(): void {
         this.listbox.textContent = '';
         const items = this.model.get('_options_labels');
-        const disabled_items = this.model.get('disabled_options');
+        const disabled_items = this.model.get('_disabled_options_labels');
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
             const option = document.createElement('option');
