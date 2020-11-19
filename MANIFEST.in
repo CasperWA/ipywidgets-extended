@@ -3,6 +3,8 @@ include README.md
 include requirements*.txt
 
 include setupbase.py
+include setup.py
+include setup.cfg
 
 include tsconfig.json
 include package.json
