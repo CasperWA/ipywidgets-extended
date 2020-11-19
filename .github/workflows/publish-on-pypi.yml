@@ -38,7 +38,7 @@ jobs:
         tags: true
 
     - name: Build source distribution
-      run: python ./setup.py sdist
+      run: python setup.py -v sdist -d py_dist
 
     - name: Publish package to TestPyPI
       uses: pypa/gh-action-pypi-publish@master
@@ -46,9 +46,11 @@ jobs:
         user: __token__
         password: ${{ secrets.test_pypi_password }}
         repository_url: https://test.pypi.org/legacy/
+        packages_dir: py_dist/
 
     - name: Publish package to PyPI
       uses: pypa/gh-action-pypi-publish@master
       with:
         user: __token__
         password: ${{ secrets.pypi_password }}
+        packages_dir: py_dist/
