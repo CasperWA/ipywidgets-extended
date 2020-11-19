@@ -6,7 +6,7 @@ define(function() {
     window['requirejs'].config({
         map: {
             '*': {
-                'ipywidgets-extended': 'nbextensions/ipywidgets_extended/index',
+                'ipywidgets_extended': 'nbextensions/ipywidgets_extended/index',
             },
         }
     });

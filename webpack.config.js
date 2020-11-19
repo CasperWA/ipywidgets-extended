@@ -54,7 +54,7 @@ module.exports = [
         filename: 'index.js',
         path: path.resolve(__dirname, 'dist'),
         libraryTarget: 'amd',
-        library: "ipywidgets-extended",
+        library: "ipywidgets_extended",
         publicPath: 'https://unpkg.com/ipywidgets_extended@' + version + '/dist/'
     },
     devtool: 'source-map',
@@ -76,7 +76,7 @@ module.exports = [
   //   output: {
   //     filename: 'embed-bundle.js',
   //     path: path.resolve(__dirname, 'docs', 'source', '_static'),
-  //     library: "ipywidgets-extended",
+  //     library: "ipywidgets_extended",
   //     libraryTarget: 'amd'
   //   },
   //   module: {

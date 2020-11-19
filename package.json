@@ -1,5 +1,5 @@
 {
-  "name": "ipywidgets-extended",
+  "name": "ipywidgets_extended",
   "version": "1.0.3",
   "description": "Extensions to the Jupyter Widgets in the 'ipywidgets' pacakge.",
   "keywords": [

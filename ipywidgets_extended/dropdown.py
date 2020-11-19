@@ -19,10 +19,10 @@ class DropdownExtended(Dropdown):
     """
 
     _model_name = traitlets.Unicode("DropdownExtendedModel").tag(sync=True)
-    _model_module = traitlets.Unicode("ipywidgets-extended").tag(sync=True)
+    _model_module = traitlets.Unicode("ipywidgets_extended").tag(sync=True)
     _model_module_version = traitlets.Unicode(__version__).tag(sync=True)
     _view_name = traitlets.Unicode("DropdownExtendedView").tag(sync=True)
-    _view_module = traitlets.Unicode("ipywidgets-extended").tag(sync=True)
+    _view_module = traitlets.Unicode("ipywidgets_extended").tag(sync=True)
     _view_module_version = traitlets.Unicode(__version__).tag(sync=True)
 
     # This being read-only means that it cannot be changed by the user.

@@ -19,7 +19,7 @@ import {
   MODULE_NAME, MODULE_VERSION
 } from './version';
 
-const EXTENSION_ID = 'ipywidgets-extended:plugin';
+const EXTENSION_ID = 'ipywidgets_extended:plugin';
 
 /**
  * The example plugin.

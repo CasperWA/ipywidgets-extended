@@ -1,5 +1,5 @@
 {
   "load_extensions": {
-    "ipywidgets-extended/extension": true
+    "ipywidgets_extended/extension": true
   }
 }
