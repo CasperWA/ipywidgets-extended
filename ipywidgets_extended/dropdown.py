@@ -1,7 +1,6 @@
 """Dropdown Widget Extension"""
 from typing import List
 
-from ipywidgets._version import __jupyter_widgets_controls_version__
 from ipywidgets.widgets.widget_selection import Dropdown
 from traitlets import traitlets
 
@@ -19,13 +18,11 @@ class DropdownExtended(Dropdown):
 
     """
 
-    _model_name = traitlets.Unicode("DropdownModel").tag(sync=True)
-    _model_module = traitlets.Unicode("@jupyter-widgets/controls").tag(sync=True)
-    _model_module_version = traitlets.Unicode(__jupyter_widgets_controls_version__).tag(
-        sync=True
-    )
+    _model_name = traitlets.Unicode("DropdownExtendedModel").tag(sync=True)
+    _model_module = traitlets.Unicode("ipywidgets-extended").tag(sync=True)
+    _model_module_version = traitlets.Unicode(__version__).tag(sync=True)
     _view_name = traitlets.Unicode("DropdownExtendedView").tag(sync=True)
-    _view_module = traitlets.Unicode("optimade-client").tag(sync=True)
+    _view_module = traitlets.Unicode("ipywidgets-extended").tag(sync=True)
     _view_module_version = traitlets.Unicode(__version__).tag(sync=True)
 
     disabled_options = traitlets.List([]).tag(sync=True)
