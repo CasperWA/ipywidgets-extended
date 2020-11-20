@@ -84,12 +84,16 @@ jobs:
     - name: Assert nbextension installed correctly
       run: ./.github/static/check_nbextensions.py
 
+    - name: Remove installation again
+      run: pip uninstall -y ipywidgets-extended
+
+    - name: Ensure it was removed as an nbextension
+      run: ./.github/static/check_nbextensions.py && exit 1 || ( echo "Failed as expected" ; exit 0 )
+
     - name: Re-install wheel
       env:
         BDIST_DIR: bdist_action
       run: |
-        pip uninstall -y ipywidgets-extended
-
         mkdir -p /tmp/installation_dir
         cd /tmp/installation_dir
         pip install ${{ env.ORIGINAL_PWD }}/${BDIST_DIR}/${{ env.BDIST_FILE }}
