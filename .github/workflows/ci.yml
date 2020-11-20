@@ -78,7 +78,7 @@ jobs:
         python setup.py -v sdist -d ${SDIST_DIR} bdist_wheel -d ${BDIST_DIR}
         SDIST_FILE=$( ls ${SDIST_DIR}/ )
         echo "BDIST_FILE=$( ls ${BDIST_DIR}/ )" >> $GITHUB_ENV
-        echo "ORIGINAL_PWD=$(pwd)"" >> $GITHUB_ENV
+        echo "ORIGINAL_PWD=$(pwd)" >> $GITHUB_ENV
 
         mkdir -p /tmp/installation_dir
         cd /tmp/installation_dir
