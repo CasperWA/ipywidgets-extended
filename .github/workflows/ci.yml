@@ -78,3 +78,6 @@ jobs:
         mkdir -p /tmp/installation_dir
         cd /tmp/installation_dir
         pip install ${ORIGINAL_PWD}/${SDIST_DIR}/${SDIST_FILE}
+
+    - name: Assert nbextension installed correctly
+      run: ./.github/static/check_nbextensions.py
