@@ -50,7 +50,7 @@ cmdclass["jsdeps"] = combine_commands(
 )
 
 setup(
-    name="ipywidgets-extended",
+    name=NAME.replace("_", "-"),
     version=get_version(Path(NAME) / "version.py"),
     license="BSD",
     author="Casper Welzel Andersen",

@@ -47,22 +47,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['10', '12']
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        node-version: ['10', '13']
+        python-version: [3.6, 3.9]
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Install Node ${{ matrix.node-version}}
+    - name: Install Node ${{ matrix.node-version }}
       uses: actions/setup-node@v1
       with:
-        node-version: ${{ matrix.node-version}}
+        node-version: ${{ matrix.node-version }}
 
-    - name: Set up Python ${{ matrix.python-version}}
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
-        python-version: ${{ matrix.python-version}}
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Python requirements
+      run: pip install -r requirements.txt
 
     - name: Check build and installation of PyPI source distribution
       env:
@@ -75,3 +78,6 @@ jobs:
         mkdir -p /tmp/installation_dir
         cd /tmp/installation_dir
         pip install ${ORIGINAL_PWD}/${SDIST_DIR}/${SDIST_FILE}
+
+    - name: Assert nbextension installed correctly
+      run: ./.github/static/check_nbextensions.py
