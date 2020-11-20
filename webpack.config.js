@@ -9,7 +9,7 @@ const rules = [
 ];
 
 // Packages that shouldn't be bundled but loaded at runtime
-const externals = ['@jupyter-widgets/base'];
+const externals = ['@jupyter-widgets/base', '@jupyter-widgets/controls'];
 
 const resolve = {
   // Add '.ts' and '.tsx' as resolvable extensions.
@@ -55,7 +55,7 @@ module.exports = [
         path: path.resolve(__dirname, 'dist'),
         libraryTarget: 'amd',
         library: "ipywidgets-extended",
-        publicPath: 'https://unpkg.com/ipywidgets_extended@' + version + '/dist/'
+        publicPath: 'https://unpkg.com/ipywidgets-extended@' + version + '/dist/'
     },
     devtool: 'source-map',
     module: {
