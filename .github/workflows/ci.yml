@@ -99,7 +99,7 @@ jobs:
       run: |
         ORIGINAL_PWD=$(pwd)
 
-        if [ "${ORIGINAL_PWD}" == "/tmp/installation_dir" ]; then; echo "Wrong original dir: ${ORIGINAL_PWD}"; exit 1; fi
+        if [ "${ORIGINAL_PWD}" == "/tmp/installation_dir" ]; then echo "Wrong original dir: ${ORIGINAL_PWD}"; exit 1; fi
         mkdir -p /tmp/installation_dir
         cd /tmp/installation_dir
         pip install ${ORIGINAL_PWD}/${BDIST_DIR}/${{ env.BDIST_FILE }}
