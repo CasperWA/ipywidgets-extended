@@ -1,11 +1,9 @@
 {
-  "name": "ipywidgets_extended",
+  "name": "ipywidgets-extended",
   "version": "1.0.3",
   "description": "Extensions to the Jupyter Widgets in the 'ipywidgets' pacakge.",
   "keywords": [
     "jupyter",
-    "jupyterlab",
-    "jupyterlab-extension",
     "widgets"
   ],
   "files": [
