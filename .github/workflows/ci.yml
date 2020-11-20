@@ -65,19 +65,44 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Install Python requirements
-      run: pip install -r requirements.txt
+      run: |
+        python -m pip install -U pip
+        pip install -U setuptools wheel
+        pip install -r requirements.txt
 
     - name: Check build and installation of PyPI source distribution
       env:
         SDIST_DIR: sdist_action
+        BDIST_DIR: bdist_action
       run: |
-        python setup.py -v sdist -d ${SDIST_DIR}
+        python setup.py -v sdist -d ${SDIST_DIR} bdist_wheel -d ${BDIST_DIR}
         SDIST_FILE=$( ls ${SDIST_DIR}/ )
+        echo "BDIST_FILE=$( ls ${BDIST_DIR}/ )" >> $GITHUB_ENV
         ORIGINAL_PWD=$(pwd)
 
         mkdir -p /tmp/installation_dir
         cd /tmp/installation_dir
         pip install ${ORIGINAL_PWD}/${SDIST_DIR}/${SDIST_FILE}
+
+    - name: Assert nbextension installed correctly
+      run: ./.github/static/check_nbextensions.py
+
+    - name: Remove installation again
+      run: pip uninstall -y ipywidgets-extended
+
+    - name: Ensure it was removed as an nbextension
+      run: ./.github/static/check_nbextensions.py && exit 1 || ( echo "Failed as expected" ; exit 0 )
+
+    - name: Re-install wheel
+      env:
+        BDIST_DIR: bdist_action
+      run: |
+        ORIGINAL_PWD=$(pwd)
+
+        if [ "${ORIGINAL_PWD}" == "/tmp/installation_dir" ]; then echo "Wrong original dir: ${ORIGINAL_PWD}"; exit 1; fi
+        mkdir -p /tmp/installation_dir
+        cd /tmp/installation_dir
+        pip install ${ORIGINAL_PWD}/${BDIST_DIR}/${{ env.BDIST_FILE }}
 
     - name: Assert nbextension installed correctly
       run: ./.github/static/check_nbextensions.py

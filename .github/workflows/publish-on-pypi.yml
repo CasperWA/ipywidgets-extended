@@ -11,6 +11,7 @@ jobs:
     if: github.repository == 'CasperWA/ipywidgets-extended' && startsWith(github.ref, 'refs/tags/v')
     env:
       PUBLISH_UPDATE_BRANCH: main
+      PY_DIST_DIR: py_dist
 
     steps:
     - name: Checkout repository
@@ -29,7 +30,7 @@ jobs:
     - name: Update setuptools and install requirements
       run: |
         python -m pip install --upgrade pip
-        pip install -U setuptools
+        pip install -U setuptools wheel
         pip install -r requirements.txt
 
     - name: Update version and tag
@@ -44,7 +45,7 @@ jobs:
         tags: true
 
     - name: Build source distribution
-      run: python setup.py -v sdist -d py_dist
+      run: python setup.py -v sdist -d ${{ env.PY_DIST_DIR }} bdist_wheel -d ${{ env.PY_DIST_DIR }}
 
     - name: Publish package to TestPyPI
       uses: pypa/gh-action-pypi-publish@master
@@ -52,11 +53,11 @@ jobs:
         user: __token__
         password: ${{ secrets.test_pypi_password }}
         repository_url: https://test.pypi.org/legacy/
-        packages_dir: py_dist/
+        packages_dir: ${{ env.PY_DIST_DIR }}/
 
     - name: Publish package to PyPI
       uses: pypa/gh-action-pypi-publish@master
       with:
         user: __token__
         password: ${{ secrets.pypi_password }}
-        packages_dir: py_dist/
+        packages_dir: ${{ env.PY_DIST_DIR }}/
