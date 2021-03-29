@@ -57,7 +57,8 @@ class DropdownExtended(Dropdown):
         help=(
             "Iterable of values, (header, ((label, value), (label, value), ...)), where the inner "
             "iterable of labels and values can be an iterable of values only, which will result "
-            "in labels being auto-generated."
+            "in labels being auto-generated.\n\nAn empty string header can be used to implement "
+            "ungrouped options."
         ),
     )
     _grouping_full: Tuple[Tuple[str, Tuple[Tuple[str, Any]]]] = None
@@ -178,9 +179,12 @@ class DropdownExtended(Dropdown):
         """Ensure all group headers are unique"""
         if proposal.value is None or not proposal.value:
             return ()
-        assert len(proposal.value) == len(
-            dict(proposal.value).keys()
-        ), f"Group headers must be unique. Passed group headers: {[_[0] for _ in proposal.value]}"
+        assert len([_ for _ in proposal.value if _[0]]) == len(
+            set([_[0] for _ in proposal.value if _[0]])
+        ), (
+            "Group headers must be unique (ignoring empty un-grouping headers - empty strings). "
+            f"Passed group headers: {[_[0] for _ in proposal.value]}"
+        )
         self._grouping_full = _make_grouping(proposal.value)
         return proposal.value
 
@@ -199,11 +203,16 @@ class DropdownExtended(Dropdown):
             ),
         )
         if not self._initializing_traits_:
-            if not grouping and self._options_labels:
-                if self.index == 0:
-                    self._notify_trait("index", 0, 0)
-                else:
-                    self.index = 0
+            for index, option in enumerate(self._flat_groupings()):
+                if (
+                    option not in self.disabled_options
+                    and option not in self._group_headers
+                ):
+                    if self.index == index:
+                        self._notify_trait("index", index, index)
+                    else:
+                        self.index = index
+                    break
             else:
                 self.index = None
 
@@ -220,7 +229,8 @@ class DropdownExtended(Dropdown):
 
         res = []
         for header, options in grouping:
-            res.append(header)
+            if header:
+                res.append(header)
             res.extend(options)
         return res
 
@@ -247,6 +257,7 @@ class DropdownExtended(Dropdown):
         """Create and return a standard list of options from a grouping."""
         res = []
         for header, options in grouping:
-            res.append((header, None))
+            if header:
+                res.append((header, None))
             res.extend(options)
         return res

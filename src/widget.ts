@@ -43,9 +43,10 @@ class DropdownExtendedView extends DropdownView {
         if (grouping && grouping.length) {
             for (let i = 0; i < grouping.length; i++) {
                 const header = grouping[i][0];
-                this._updateOptionsUtility(header, true, true);
+                if (header) { this._updateOptionsUtility(header, true, true); }
                 for (let j = 0; j < grouping[i][1].length; j++) {
-                    const item = ' ' + grouping[i][1][j];
+                    let item = grouping[i][1][j];
+                    if (header) { item = ' ' + item; }
                     const disabled = disabled_items.includes(grouping[i][1][j]);
                     this._updateOptionsUtility(item, disabled, false);
                 }
