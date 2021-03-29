@@ -14,7 +14,7 @@ def _make_grouping(
     grouping: List[Tuple[str, List[str]]]
 ) -> Tuple[Tuple[str, Tuple[Tuple[str, Any]]]]:
     """Utilize `_make_options()` to set inner options in grouping"""
-    return tuple(tuple(header, _make_options(options)) for header, options in grouping)
+    return tuple([(header, _make_options(options)) for header, options in grouping])
 
 
 class DropdownExtended(Dropdown):
@@ -78,7 +78,10 @@ class DropdownExtended(Dropdown):
         self.set_trait(
             "_grouping_labels",
             tuple(
-                (header, tuple(_[0] for _ in options)) for header, options in grouping
+                [
+                    (header, tuple([_[0] for _ in options]))
+                    for header, options in grouping
+                ]
             ),
         )
 
@@ -114,8 +117,14 @@ class DropdownExtended(Dropdown):
 
         if "grouping" in kwargs:
             kwargs["options"] = self._create_grouping_options(grouping)
-
         super().__init__(*args, **kwargs)
+        self._initializing_traits_ = True
+
+        if "grouping" in kwargs:
+            self._notify_trait(
+                "_grouping_labels", self._grouping_labels, self._grouping_labels
+            )
+
         self._initializing_traits_ = False
 
     @traitlets.validate("disabled_options")
@@ -165,20 +174,30 @@ class DropdownExtended(Dropdown):
                 self.index = None
 
     @traitlets.validate("grouping")
-    def _validate_grouping(self, proposal) -> List[Tuple[str, List[str]]]:
+    def _validate_grouping(self, proposal) -> Tuple[Tuple[str, List[str]]]:
         """Ensure all group headers are unique"""
         if proposal.value is None or not proposal.value:
-            return []
+            return ()
         assert len(proposal.value) == len(
             dict(proposal.value).keys()
         ), f"Group headers must be unique. Passed group headers: {[_[0] for _ in proposal.value]}"
+        self._grouping_full = _make_grouping(proposal.value)
         return proposal.value
 
     @traitlets.observe("grouping")
     def _set_grouping(self, change) -> None:
         """Put options into desired grouping, updating `options`"""
-        grouping = change.new
-        self.set_trait("_grouping_labels", grouping)
+        grouping = self._grouping_full
+        self.options = self._create_grouping_options(grouping)
+        self.set_trait(
+            "_grouping_labels",
+            tuple(
+                [
+                    (header, tuple([_[0] for _ in options]))
+                    for header, options in grouping
+                ]
+            ),
+        )
         if not self._initializing_traits_:
             if not grouping and self._options_labels:
                 if self.index == 0:

@@ -45,8 +45,8 @@ class DropdownExtendedView extends DropdownView {
                 const header = grouping[i][0];
                 this._updateOptionsUtility(header, true, true);
                 for (let j = 0; j < grouping[i][1].length; j++) {
-                    const item = '\xa0' + grouping[i][j];
-                    const disabled = disabled_items.includes(grouping[i][j]);
+                    const item = ' ' + grouping[i][1][j];
+                    const disabled = disabled_items.includes(grouping[i][1][j]);
                     this._updateOptionsUtility(item, disabled, false);
                 }
             }
@@ -59,11 +59,12 @@ class DropdownExtendedView extends DropdownView {
         }
     }
 
-    _updateOptionsUtility(item: string, disabled: boolean, bold: boolean): void {
+    _updateOptionsUtility(item: string, disabled: boolean, bold_and_black: boolean): void {
         const option = document.createElement('option');
         option.textContent = item.replace(/ /g, '\xa0'); // space -> &nbsp; (no-break space)
-        if (bold) {
+        if (bold_and_black) {
             option.style.fontWeight = 'bold';
+            option.style.color = 'black';
         }
         option.setAttribute('data-value', encodeURIComponent(item));
         option.disabled = disabled;
