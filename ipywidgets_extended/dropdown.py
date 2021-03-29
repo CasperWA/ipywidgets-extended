@@ -1,5 +1,5 @@
 """Dropdown Widget Extension"""
-from typing import List, Tuple
+from typing import Any, List, Tuple, Union
 
 from ipywidgets.widgets.widget_selection import Dropdown, _make_options
 from traitlets import traitlets
@@ -8,6 +8,13 @@ from ipywidgets_extended.version import __version__
 
 
 __all__ = ("DropdownExtended",)
+
+
+def _make_grouping(
+    grouping: List[Tuple[str, List[str]]]
+) -> Tuple[Tuple[str, Tuple[Tuple[str, Any]]]]:
+    """Utilize `_make_options()` to set inner options in grouping"""
+    return tuple(tuple(header, _make_options(options)) for header, options in grouping)
 
 
 class DropdownExtended(Dropdown):
@@ -26,40 +33,72 @@ class DropdownExtended(Dropdown):
     _view_module = traitlets.Unicode("ipywidgets-extended").tag(sync=True)
     _view_module_version = traitlets.Unicode(f"^{__version__}").tag(sync=True)
 
-    # Additional widget properties used in the TS
-    _disabled_options_labels = traitlets.List(
+    # Additional widget properties used in the TypeScript code
+    _disabled_options_labels = traitlets.Tuple(
         trait=traitlets.Unicode(),
         read_only=True,
-        help="The labels for the disabled options.",
     ).tag(sync=True)
-    _grouping_labels = traitlets.List(
-        traitlets.Tuple(traitlets.Unicode(), traitlets.List(traitlets.Unicode())),
-        read_only=True,
-        help=(
-            "List of tuples for groupings, where the first value in the tuple is the grouping "
-            "header and the second value is a list of the labels in the grouping."
+    _grouping_labels = traitlets.Tuple(
+        trait=traitlets.Tuple(
+            traitlets.Unicode(),
+            traitlets.Tuple(traitlets.Unicode()),  # Similar to `_options_labels`
         ),
+        read_only=True,
     ).tag(sync=True)
 
     # The equivalent Python changeable traits
-    disabled_options = traitlets.List(traitlets.Unicode(), default_value=[])
-    grouping = traitlets.List(
-        traitlets.Tuple(
-            traitlets.Unicode(),
-            traitlets.List(traitlets.Unicode()),
-        ),
+    disabled_options = traitlets.List(
+        traitlets.Unicode(),
         default_value=[],
+        help="The labels for the disabled options.",
     )
+    grouping = traitlets.Any(  # Similar to `options`
+        default_value=(),
+        help=(
+            "Iterable of values, (header, ((label, value), (label, value), ...)), where the inner "
+            "iterable of labels and values can be an iterable of values only, which will result "
+            "in labels being auto-generated."
+        ),
+    )
+    _grouping_full: Tuple[Tuple[str, Tuple[Tuple[str, Any]]]] = None
 
     def __init__(self, *args, **kwargs):
         self._initializing_traits_ = True
 
+        if "options" in kwargs and "grouping" in kwargs:
+            raise ValueError(
+                "Either `options` or `grouping` must be specified. Not both."
+            )
+
         options = _make_options(kwargs.get("options", ()))
         disabled_options = kwargs.get("disabled_options", [])
-        self.set_trait("_disabled_options_labels", disabled_options)
+        self.set_trait("_disabled_options_labels", tuple(disabled_options))
+        grouping = _make_grouping(kwargs.get("grouping", ()))
+        self._grouping_full = grouping
+        self.set_trait(
+            "_grouping_labels",
+            tuple(
+                (header, tuple(_[0] for _ in options)) for header, options in grouping
+            ),
+        )
 
         # Ensure initialized 'index' is an enabled option (if possible)
         if (
+            "index" not in kwargs
+            and "value" not in kwargs
+            and "label" not in kwargs
+            and "grouping" in kwargs
+        ):
+            for index, option in enumerate(self._flat_groupings()):
+                if option not in disabled_options and option not in self._group_headers:
+                    kwargs["index"] = index
+                    kwargs["label"], kwargs["value"] = self._get_grouping_label_value(
+                        index
+                    )
+                    break
+            else:
+                kwargs["index"] = kwargs["label"] = kwargs["value"] = None
+        elif (
             "index" not in kwargs
             and "value" not in kwargs
             and "label" not in kwargs
@@ -72,6 +111,9 @@ class DropdownExtended(Dropdown):
                     break
             else:
                 kwargs["index"] = kwargs["label"] = kwargs["value"] = None
+
+        if "grouping" in kwargs:
+            kwargs["options"] = self._create_grouping_options(grouping)
 
         super().__init__(*args, **kwargs)
         self._initializing_traits_ = False
@@ -94,22 +136,22 @@ class DropdownExtended(Dropdown):
         self.set_trait("_disabled_options_labels", disabled_options)
         if not self._initializing_traits_:
             if disabled_options:
-                grouping_entries = range(
-                    sum(len(_) + 1 for _ in dict(self._grouping_labels).values())
-                )
-                if self._options_labels[self.index] in disabled_options:
-                    for index, label in enumerate(self._options_labels):
-                        if label not in disabled_options:
-                            self.index = index
-                            break
-                    else:
-                        self.index = None
-                elif grouping_entries[self.index] in disabled_options:
-                    for index, label in enumerate(grouping_entries):
+                if (
+                    self.grouping
+                    and self._flat_groupings()[self.index] in disabled_options
+                ):
+                    for index, label in enumerate(self._flat_groupings()):
                         if (
                             label not in disabled_options
                             and label not in self._group_headers
                         ):
+                            self.index = index
+                            break
+                    else:
+                        self.index = None
+                elif self._options_labels[self.index] in disabled_options:
+                    for index, label in enumerate(self._options_labels):
+                        if label not in disabled_options:
                             self.index = index
                             break
                     else:
@@ -150,3 +192,42 @@ class DropdownExtended(Dropdown):
     def _group_headers(self) -> List[str]:
         """Get group headers from self._grouping_labels"""
         return [_[0] for _ in self._grouping_labels]
+
+    def _flat_groupings(
+        self, grouping: Tuple[Tuple[str, Tuple[Any]]] = None
+    ) -> List[Union[str, Any]]:
+        """Get grouping similar to dropdown - a flat list of entries"""
+        grouping = grouping if grouping is not None else self._grouping_labels
+
+        res = []
+        for header, options in grouping:
+            res.append(header)
+            res.extend(options)
+        return res
+
+    def _get_grouping_label_value(
+        self,
+        index: int,
+        grouping: Tuple[Tuple[str, Tuple[Tuple[str, Any]]]] = None,
+    ) -> Tuple[str, Any]:
+        """Return label,value-pair of grouping index.
+
+        The index is expected to match `_flat_groupings`, i.e., the actual dropdown.
+        """
+        grouping = grouping if grouping is not None else self._grouping_full
+
+        res = self._flat_groupings(grouping)[index]
+        if len(res) == 1:
+            return res, None
+        return res
+
+    @staticmethod
+    def _create_grouping_options(
+        grouping: Tuple[Tuple[str, Tuple[Tuple[str, Any]]]]
+    ) -> Tuple[Tuple[str, Any]]:
+        """Create and return a standard list of options from a grouping."""
+        res = []
+        for header, options in grouping:
+            res.append((header, None))
+            res.extend(options)
+        return res
