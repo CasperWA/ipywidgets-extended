@@ -15,15 +15,15 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v2.3.4
 
     - name: Install Node 13
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v2.1.5
       with:
         node-version: '13'
 
     - name: Set up Python 3.9
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v2.2.2
       with:
         python-version: 3.9
 
@@ -37,7 +37,7 @@ jobs:
       run: .github/static/update_version.sh
 
     - name: Push updates to '${{ env.PUBLISH_UPDATE_BRANCH }}'
-      uses: CasperWA/push-protected@v2
+      uses: CasperWA/push-protected@v2.3.0
       with:
         token: ${{ secrets.RELEASE_PAT }}
         branch: ${{ env.PUBLISH_UPDATE_BRANCH }}
