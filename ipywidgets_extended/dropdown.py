@@ -1,5 +1,5 @@
 """Dropdown Widget Extension"""
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple
 
 from ipywidgets.widgets.widget_selection import Dropdown, _make_options
 from traitlets import traitlets
@@ -41,7 +41,9 @@ class DropdownExtended(Dropdown):
     _grouping_labels = traitlets.Tuple(
         trait=traitlets.Tuple(
             traitlets.Unicode(),
-            traitlets.Tuple(traitlets.Unicode()),  # Similar to `_options_labels`
+            traitlets.Tuple(  # Similar to `_options_labels`
+                traitlets.Tuple(traitlets.Unicode(), traitlets.Any())
+            ),
         ),
         read_only=True,
     ).tag(sync=True)
@@ -222,17 +224,11 @@ class DropdownExtended(Dropdown):
         return [_[0] for _ in self._grouping_labels]
 
     def _flat_groupings(
-        self, grouping: Tuple[Tuple[str, Tuple[Any]]] = None
-    ) -> List[Union[str, Any]]:
+        self, grouping: Tuple[Tuple[str, Tuple[Tuple[str, Any]]]] = None
+    ) -> List[Tuple[str, Any]]:
         """Get grouping similar to dropdown - a flat list of entries"""
         grouping = grouping if grouping is not None else self._grouping_labels
-
-        res = []
-        for header, options in grouping:
-            if header:
-                res.append(header)
-            res.extend(options)
-        return res
+        return self._create_grouping_options(grouping)
 
     def _get_grouping_label_value(
         self,
@@ -246,18 +242,19 @@ class DropdownExtended(Dropdown):
         grouping = grouping if grouping is not None else self._grouping_full
 
         res = self._flat_groupings(grouping)[index]
-        if len(res) == 1:
-            return res, None
+        if not isinstance(res, tuple) or len(res) != 2:
+            raise ValueError(
+                f"Found a grouped value that is not a tuple with length 2: {res!r}"
+            )
         return res
 
     @staticmethod
     def _create_grouping_options(
         grouping: Tuple[Tuple[str, Tuple[Tuple[str, Any]]]]
-    ) -> Tuple[Tuple[str, Any]]:
+    ) -> List[Tuple[str, Any]]:
         """Create and return a standard list of options from a grouping."""
         res = []
         for header, options in grouping:
-            if header:
-                res.append((header, None))
+            res.append((header, None))
             res.extend(options)
         return res
