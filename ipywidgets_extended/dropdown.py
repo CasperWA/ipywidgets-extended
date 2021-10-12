@@ -41,9 +41,7 @@ class DropdownExtended(Dropdown):
     _grouping_labels = traitlets.Tuple(
         trait=traitlets.Tuple(
             traitlets.Unicode(),
-            traitlets.Tuple(  # Similar to `_options_labels`
-                traitlets.Tuple(traitlets.Unicode(), traitlets.Any())
-            ),
+            traitlets.Tuple(traitlets.Unicode()),  # Similar to `_options_labels`
         ),
         read_only=True,
     ).tag(sync=True)
@@ -119,7 +117,7 @@ class DropdownExtended(Dropdown):
                 kwargs["index"] = kwargs["label"] = kwargs["value"] = None
 
         if "grouping" in kwargs:
-            kwargs["options"] = self._create_grouping_options(grouping)
+            kwargs["options"] = self._flat_groupings(grouping)
         super().__init__(*args, **kwargs)
         self._initializing_traits_ = True
 
@@ -194,7 +192,7 @@ class DropdownExtended(Dropdown):
     def _set_grouping(self, change) -> None:
         """Put options into desired grouping, updating `options`"""
         grouping = self._grouping_full
-        self.options = self._create_grouping_options(grouping)
+        self.options = self._flat_groupings(grouping)
         self.set_trait(
             "_grouping_labels",
             tuple(
@@ -226,9 +224,15 @@ class DropdownExtended(Dropdown):
     def _flat_groupings(
         self, grouping: Tuple[Tuple[str, Tuple[Tuple[str, Any]]]] = None
     ) -> List[Tuple[str, Any]]:
-        """Get grouping similar to dropdown - a flat list of entries"""
+        """Get grouping similar to dropdown - a flat list of entries."""
         grouping = grouping if grouping is not None else self._grouping_labels
-        return self._create_grouping_options(grouping)
+
+        res = []
+        for header, options in grouping:
+            if header:
+                res.append((header, None))
+            res.extend(options)
+        return res
 
     def _get_grouping_label_value(
         self,
@@ -246,16 +250,4 @@ class DropdownExtended(Dropdown):
             raise ValueError(
                 f"Found a grouped value that is not a tuple with length 2: {res!r}"
             )
-        return res
-
-    @staticmethod
-    def _create_grouping_options(
-        grouping: Tuple[Tuple[str, Tuple[Tuple[str, Any]]]]
-    ) -> List[Tuple[str, Any]]:
-        """Create and return a standard list of options from a grouping."""
-        res = []
-        for header, options in grouping:
-            if header:
-                res.append((header, None))
-            res.extend(options)
         return res
