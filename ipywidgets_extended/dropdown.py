@@ -255,6 +255,7 @@ class DropdownExtended(Dropdown):
         """Create and return a standard list of options from a grouping."""
         res = []
         for header, options in grouping:
-            res.append((header, None))
+            if header:
+                res.append((header, None))
             res.extend(options)
         return res
