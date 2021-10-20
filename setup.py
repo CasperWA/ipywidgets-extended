@@ -56,7 +56,7 @@ setup(
     author="Casper Welzel Andersen",
     author_email="casper+github@welzel.nu",
     cmdclass=cmdclass,
-    description="Extensions to the Jupyter Widgets in the `ipywidgets` pacakge.",
+    description="Extensions to the Jupyter Widgets in the `ipywidgets` package.",
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/CasperWA/ipywidgets-extended",
