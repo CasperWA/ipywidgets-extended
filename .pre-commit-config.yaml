@@ -18,3 +18,4 @@ repos:
   hooks:
   - id: flake8
     args: [--count, --show-source, --statistics]
+    exclude: setupbase.py
