@@ -2,28 +2,29 @@ from pathlib import Path
 from setuptools import setup, find_packages
 
 from setupbase import (
-    create_cmdclass,
-    install_npm,
-    ensure_targets,
-    combine_commands,
+    get_data_files,
+    wrap_installers,
+    npm_builder,
     get_version,
 )
 
 MODULE_DIR = Path(__file__).resolve().parent
 
-with open(MODULE_DIR.joinpath("README.md")) as handle:
-    README = handle.read()
-
-with open(MODULE_DIR.joinpath("requirements.txt")) as handle:
-    BASE = [f"{_.strip()}" for _ in handle.readlines() if " " not in _]
-
-with open(MODULE_DIR.joinpath("requirements_dev.txt")) as handle:
-    DEV = [f"{_.strip()}" for _ in handle.readlines() if " " not in _]
-
+README = (MODULE_DIR / "README.md").read_text()
+BASE = [
+    f"{_.strip()}"
+    for _ in (MODULE_DIR / "requirements.txt").read_text().splitlines()
+    if " " not in _
+]
+DEV = [
+    f"{_.strip()}"
+    for _ in (MODULE_DIR / "requirements_dev.txt").read_text().splitlines()
+    if " " not in _
+]
 
 NAME = "ipywidgets_extended"
 
-NB_PATH = MODULE_DIR / NAME / "nbextension/static"
+NB_PATH = MODULE_DIR / NAME / "nbextension" / "static"
 LAB_PATH = MODULE_DIR / NAME / "labextension"
 
 # Representative files that should exist after a successful build
@@ -32,21 +33,17 @@ jstargets = [
     MODULE_DIR / "lib/plugin.js",
 ]
 
-package_data_spec = {NAME: ["nbextension/static/*.*js*", "labextension/*.tgz"]}
-
 data_files_spec = [
     (f"share/jupyter/nbextensions/{NAME}", NB_PATH, "*.js*"),
     ("share/jupyter/lab/extensions", LAB_PATH, "*.tgz"),
     ("etc/jupyter/nbconfig/notebook.d", MODULE_DIR, f"{NAME}.json"),
 ]
 
-
-cmdclass = create_cmdclass(
-    "jsdeps", package_data_spec=package_data_spec, data_files_spec=data_files_spec
-)
-cmdclass["jsdeps"] = combine_commands(
-    install_npm(MODULE_DIR, build_cmd="build:all"),
-    ensure_targets(jstargets),
+builder = npm_builder(path=MODULE_DIR, build_cmd="build:all")
+cmdclass = wrap_installers(
+    pre_develop=builder,
+    pre_dist=builder,
+    ensured_targets=jstargets,
 )
 
 setup(
@@ -65,6 +62,7 @@ setup(
     include_package_data=True,
     install_requires=BASE,
     extras_require={"dev": DEV},
+    data_files=get_data_files(data_files_spec),
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Framework :: Jupyter",
