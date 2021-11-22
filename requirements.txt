@@ -1,2 +1,2 @@
 ipywidgets~=7.6
-packaging~=21.2
+packaging~=21.3
