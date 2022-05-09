@@ -8,41 +8,42 @@ This file originates from the 'jupyter-packaging' package, and
 contains a set of useful utilities for including npm packages
 within a Python package.
 """
-from collections import defaultdict
-from os.path import join as pjoin
-from pathlib import Path
-import io
-import os
 import functools
+import io
+import logging
+import os
 import pipes
 import re
 import shlex
-from shutil import which
 import subprocess
 import sys
+from collections import defaultdict
+from pathlib import Path
+from shutil import which
+from typing import Callable, List, Optional, Tuple, Union
 
 try:
     from deprecation import deprecated
 except ImportError:
     # shim deprecated to allow setuptools to find the version string in this file
-    deprecated = lambda *args, **kwargs: lambda *args, **kwargs: None
+    deprecated = lambda *args, **kwargs: lambda *args, **kwargs: None  # noqa
 
-# BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
-# update it when the contents of directories change.
-if os.path.exists("MANIFEST"):
-    os.remove("MANIFEST")
+if Path("MANIFEST").exists():
+    Path("MANIFEST").unlink()
 
 from packaging.version import VERSION_PATTERN
 from setuptools import Command
 from setuptools.command.build_py import build_py
-from setuptools.config import StaticModule
 
-# Note: distutils must be imported after setuptools
-from distutils import log
+try:
+    from setuptools.config import StaticModule
+except ImportError:
+    # setuptools>=61.0.0
+    from setuptools.config.expand import StaticModule
 
-from setuptools.command.sdist import sdist
-from setuptools.command.develop import develop
 from setuptools.command.bdist_egg import bdist_egg
+from setuptools.command.develop import develop
+from setuptools.command.sdist import sdist
 
 try:
     from wheel.bdist_wheel import bdist_wheel
@@ -57,7 +58,7 @@ else:
         return " ".join(map(pipes.quote, cmd_list))
 
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 
 # ---------------------------------------------------------------------------
 # Top Level Variables
@@ -69,7 +70,9 @@ VERSION_REGEX = re.compile(
 )
 
 
-if "--skip-npm" in sys.argv:
+log = logging.getLogger(__name__)
+
+if "--skip-npm" in sys.argv or os.environ.get("JUPYTER_PACKAGING_SKIP_NPM") == "1":
     print("Skipping npm install as requested.")
     skip_npm = True
     sys.argv.remove("--skip-npm")
@@ -91,6 +94,7 @@ def wrap_installers(
     skip_if_exists=None,
 ):
     """Make a setuptools cmdclass that calls a prebuild function before installing.
+
     Parameters
     ----------
     pre_develop: function
@@ -105,10 +109,12 @@ def wrap_installers(
         A list of local file paths that should exist when the dist commands are run
     skip_if_exists: list
         A list of local files whose presence causes the prebuild to skip
+
     Notes
     -----
     For any function given, creates a new `setuptools` command that can be run separately,
     e.g. `python setup.py pre_develop`.
+
     Returns
     -------
     A cmdclass dictionary for setup args.
@@ -161,7 +167,10 @@ def npm_builder(
     path=None, build_dir=None, source_dir=None, build_cmd="build", force=False, npm=None
 ):
     """Build function factory for managing an npm installation.
-    Note: The function is a no-op if the `--skip-npm` cli flag is used.
+
+    Note: The function is a no-op if the `--skip-npm` cli flag is used
+        or JUPYTER_PACKAGING_SKIP_NPM env is set.
+
     Parameters
     ----------
     path: str, optional
@@ -175,6 +184,7 @@ def npm_builder(
         The npm command to build assets to the build_dir.
     npm: str or list, optional.
         The npm executable name, or a tuple of ['node', executable].
+
     Returns
     -------
     A build function to use with `wrap_installers`
@@ -185,12 +195,11 @@ def npm_builder(
             log.info("Skipping npm-installation")
             return
 
-        node_package = path or os.path.abspath(os.getcwd())
-        node_modules = pjoin(node_package, "node_modules")
+        node_package = Path(path or Path.cwd().resolve())
 
-        is_yarn = os.path.exists(pjoin(node_package, "yarn.lock"))
+        is_yarn = (node_package / "yarn.lock").exists()
         if is_yarn and not which("yarn"):
-            log.warn("yarn not found, ignoring yarn.lock file")
+            log.warning("yarn not found, ignoring yarn.lock file")
             is_yarn = False
 
         npm_cmd = npm
@@ -217,7 +226,7 @@ def npm_builder(
 
         if should_build:
             log.info(
-                "Installing build dependencies with npm.  This may " "take a while..."
+                "Installing build dependencies with npm.  This may take a while..."
             )
             run(npm_cmd + ["install"], cwd=node_package)
             if build_cmd:
@@ -233,6 +242,7 @@ def npm_builder(
 
 def get_data_files(data_specs, *, top=None, exclude=None):
     """Expand data file specs into valid data files metadata.
+
     Parameters
     ----------
     data_files_spec: list
@@ -243,6 +253,7 @@ def get_data_files(data_specs, *, top=None, exclude=None):
         The top directory
     exclude: func, optional
         Function used to test whether to exclude a file
+
     Returns
     -------
     A valid list of data_files items.
@@ -250,17 +261,17 @@ def get_data_files(data_specs, *, top=None, exclude=None):
     return _get_data_files(data_specs, None, top=top, exclude=exclude)
 
 
-def get_version(fpath, name="__version__"):
+def get_version(fpath: Union[str, Path], name: str = "__version__") -> str:
     """Get the version of the package from the given file by extracting the given `name`."""
+    fpath = Path(fpath)
     # Try to get it from a static import first
     try:
-
-        module = StaticModule(fpath.replace(os.sep, ".").replace(".py", ""))
+        module = StaticModule(fpath.as_posix().replace("/", ".").replace(".py", ""))
         return getattr(module, name)
-    except Exception as e:
+    except Exception:
         pass
 
-    path = os.path.realpath(fpath)
+    path = fpath.resolve()
     version_ns = {}
     with io.open(path, encoding="utf8") as f:
         exec(f.read(), {}, version_ns)
@@ -269,28 +280,28 @@ def get_version(fpath, name="__version__"):
 
 def run(cmd, **kwargs):
     """Echo a command before running it."""
-    log.info("> " + list2cmdline(cmd))
+    log.info(f"> {list2cmdline(cmd)}")
     kwargs.setdefault("shell", os.name == "nt")
     if not isinstance(cmd, (list, tuple)):
         cmd = shlex.split(cmd, posix=os.name != "nt")
-    if not os.path.isabs(cmd[0]):
+    if not Path(cmd[0]).is_absolute():
         # If a command is not an absolute path find it first.
         cmd_path = which(cmd[0])
         if not cmd_path:
             raise ValueError(
-                "Aborting. Could not find cmd (%s) in path. "
+                f"Aborting. Could not find cmd ({cmd[0]}) in path. "
                 "If command is not expected to be in user's path, "
-                "use an absolute path." % cmd[0]
+                "use an absolute path."
             )
         cmd[0] = cmd_path
     return subprocess.check_call(cmd, **kwargs)
 
 
-def is_stale(target, source):
+def is_stale(target: Union[str, Path], source: Union[str, Path]) -> bool:
     """Test whether the target file/directory is stale based on the source
     file/directory.
     """
-    if not os.path.exists(target):
+    if not Path(target).exists():
         return True
     target_mtime = recursive_mtime(target) or 0
     return compare_recursive_mtime(source, cutoff=target_mtime)
@@ -336,23 +347,27 @@ def combine_commands(*commands):
     return CombinedCommand
 
 
-def compare_recursive_mtime(path, cutoff, newest=True):
+def compare_recursive_mtime(
+    path: Union[str, Path], cutoff: float, newest: bool = True
+) -> bool:
     """Compare the newest/oldest mtime for all files in a directory.
+
     Cutoff should be another mtime to be compared against. If an mtime that is
     newer/older than the cutoff is found it will return True.
     E.g. if newest=True, and a file in path is newer than the cutoff, it will
     return True.
     """
-    if os.path.isfile(path):
+    path = Path(path)
+    if path.is_file():
         mt = mtime(path)
         if newest:
             if mt > cutoff:
                 return True
         elif mt < cutoff:
             return True
-    for dirname, _, filenames in os.walk(path, topdown=False):
+    for dirname, _, filenames in os.walk(str(path), topdown=False):
         for filename in filenames:
-            mt = mtime(pjoin(dirname, filename))
+            mt = mtime(Path(dirname) / filename)
             if newest:  # Put outside of loop?
                 if mt > cutoff:
                     return True
@@ -361,14 +376,15 @@ def compare_recursive_mtime(path, cutoff, newest=True):
     return False
 
 
-def recursive_mtime(path, newest=True):
+def recursive_mtime(path: Union[str, Path], newest: bool = True) -> float:
     """Gets the newest/oldest mtime for all files in a directory."""
-    if os.path.isfile(path):
+    path = Path(path)
+    if path.is_file():
         return mtime(path)
     current_extreme = None
-    for dirname, dirnames, filenames in os.walk(path, topdown=False):
+    for dirname, _, filenames in os.walk(str(path), topdown=False):
         for filename in filenames:
-            mt = mtime(pjoin(dirname, filename))
+            mt = mtime(Path(dirname) / filename)
             if newest:  # Put outside of loop?
                 if mt >= (current_extreme or mt):
                     current_extreme = mt
@@ -377,9 +393,9 @@ def recursive_mtime(path, newest=True):
     return current_extreme
 
 
-def mtime(path):
+def mtime(path: Union[str, Path]) -> float:
     """shorthand for mtime"""
-    return os.stat(path).st_mtime
+    return Path(path).stat().st_mtime
 
 
 def skip_if_exists(paths, CommandClass):
@@ -409,8 +425,11 @@ def skip_if_exists(paths, CommandClass):
 
 def ensure_targets(targets):
     """Return a Command that checks that certain files exist.
+
     Raises a ValueError if any of the files are missing.
-    Note: The check is skipped if the `--skip-npm` flag is used.
+
+    Note: The check is skipped if the `--skip-npm` flag is used
+        or JUPYTER_PACKAGING_SKIP_NPM env is set.
     """
 
     class TargetsCheck(BaseCommand):
@@ -438,13 +457,17 @@ def ensure_targets(targets):
 )
 def get_version_info(version_str):
     """DEPRECATED: Get a version info tuple given a version string
+
     Use something like the following instead:
+
     ```
     import re
+
     # Version string must appear intact for tbump versioning
     __version__ = '1.4.0.dev0'
+
     # Build up version_info tuple for backwards compatibility
-    pattern = r'(?P<major>\d+).(?P<minor>\d+).(?P<patch>\d+)(?P<rest>.*)'
+    pattern = r'(?P<major>/d+).(?P<minor>/d+).(?P<patch>/d+)(?P<rest>.*)'
     match = re.match(pattern, __version__)
     parts = [int(match[part]) for part in ['major', 'minor', 'patch']]
     if match['rest']:
@@ -541,6 +564,7 @@ def update_package_data(distribution):
 )
 class bdist_egg_disabled(bdist_egg):
     """Disabled version of bdist_egg
+
     Prevents setup.py install performing setuptools' default easy_install,
     which it should never ever do.
     """
@@ -566,6 +590,7 @@ def create_cmdclass(
     prerelease_cmd=None, package_data_spec=None, data_files_spec=None, exclude=None
 ):
     """Create a command class with the given optional prerelease class.
+
     Parameters
     ----------
     prerelease_cmd: (name, Command) tuple, optional
@@ -580,14 +605,17 @@ def create_cmdclass(
     exclude: function
         A function which takes a string filename and returns True if the
         file should be excluded from package data and data files, False otherwise.
+
     Notes
     -----
     We use specs so that we can find the files *after* the build
     command has run.
+
     The package data glob patterns should be relative paths from the package
     folder containing the __init__.py file, which is given as the package
     name.
     e.g. `dict(foo=['bar/*', 'baz/**'])`
+
     The data files directories should be absolute paths or relative paths
     from the root directory of the repository.  Data files are specified
     differently from `package_data` because we need a separate path entry
@@ -634,7 +662,9 @@ def install_npm(
     path=None, build_dir=None, source_dir=None, build_cmd="build", force=False, npm=None
 ):
     """Return a Command for managing an npm installation.
+
     Note: The command is skipped if the `--skip-npm` flag is used.
+
     Parameters
     ----------
     path: str, optional
@@ -680,6 +710,7 @@ def install_npm(
 )
 def _wrap_command(cmds, cls, strict=True):
     """Wrap a setup command
+
     Parameters
     ----------
     cmds: list(str)
@@ -719,7 +750,7 @@ def _get_file_handler(package_data_spec, data_files_spec, exclude=None):
     class FileHandler(BaseCommand):
         def run(self):
             package_data = self.distribution.package_data
-            package_spec = package_data_spec or dict()
+            package_spec = package_data_spec or {}
 
             for (key, patterns) in package_spec.items():
                 files = _get_package_data(key, patterns)
@@ -748,26 +779,33 @@ def _get_develop_handler():
             self.finalize_options()
             super(_develop, self).install_for_development()
             self.run_command("handle_files")
-            prefix = self.install_base or self.prefix or sys.prefix
+            prefix = Path(self.install_base or self.prefix or sys.prefix)
             for target_dir, filepaths in self.distribution.data_files:
                 for filepath in filepaths:
-                    filename = os.path.basename(filepath)
-                    target = os.path.join(prefix, target_dir, filename)
-                    self.mkpath(os.path.dirname(target))
-                    outf, copied = self.copy_file(filepath, target)
+                    filename = Path(filepath).name
+                    target = prefix / target_dir / filename
+                    self.mkpath(str(target.parent))
+                    self.copy_file(str(filepath), str(target))
 
     return _develop
 
 
-def _glob_pjoin(*parts):
+def _glob_pjoin(*parts: List[Union[str, Path]]) -> str:
     """Join paths for glob processing"""
-    if parts[0] in (".", ""):
+    if str(parts[0]) in (".", ""):
         parts = parts[1:]
-    return pjoin(*parts).replace(os.sep, "/")
+    return Path().joinpath(*parts).as_posix()
 
 
-def _get_data_files(data_specs, existing, *, top=None, exclude=None):
+def _get_data_files(
+    data_specs: List[Tuple[str, str, str]],
+    existing: List[Tuple[str, str]],
+    *,
+    top: Optional[Union[str, Path]] = None,
+    exclude: Callable[[str], bool] = None,
+):
     """Expand data file specs into valid data files metadata.
+
     Parameters
     ----------
     data_specs: list of tuples
@@ -778,12 +816,16 @@ def _get_data_files(data_specs, existing, *, top=None, exclude=None):
         The top directory
     exclude: func, optional
         Function used to test whether to exclude a file
+
     Returns
     -------
     A valid list of data_files items.
     """
     if top is None:
-        top = os.path.abspath(os.getcwd())
+        top = Path.cwd().resolve()
+    else:
+        top = Path(top)
+
     # Extract the existing data files into a staging object.
     file_data = defaultdict(list)
     for (path, files) in existing or []:
@@ -792,19 +834,20 @@ def _get_data_files(data_specs, existing, *, top=None, exclude=None):
     # Extract the files and assign them to the proper data
     # files path.
     for (path, dname, pattern) in data_specs or []:
-        if os.path.isabs(dname):
-            dname = os.path.relpath(dname, top)
+        dname = Path(dname)
+        if dname.is_absolute():
+            dname = dname.relative_to(top)
 
-        dname = dname.replace(os.sep, "/").rstrip("/")
+        dname = dname.as_posix().rstrip("/")
         offset = 0 if dname in (".", "") else len(dname) + 1
         files = _get_files(_glob_pjoin(dname, pattern), top=top)
 
         for fname in files:
             # Normalize the path.
-            root = os.path.dirname(fname)
+            root = str(Path(fname).parent)
             full_path = _glob_pjoin(path, root[offset:])
-            if full_path.endswith("/"):
-                full_path = full_path[:-1]
+            full_path.rstrip("/")
+
             if exclude is not None and exclude(fname):
                 continue
             file_data[full_path].append(fname)
@@ -816,8 +859,11 @@ def _get_data_files(data_specs, existing, *, top=None, exclude=None):
     return data_files
 
 
-def _get_files(file_patterns, top=None):
+def _get_files(
+    file_patterns: Union[str, List[str]], top: Union[str, Path] = None
+) -> List[str]:
     """Expand file patterns to a list of paths.
+
     Parameters
     -----------
     file_patterns: list or str
@@ -827,30 +873,35 @@ def _get_files(file_patterns, top=None):
         absolute paths.
     top: str
         the directory to consider for data files
+
     Note:
     Files in `node_modules` are ignored.
     """
     if top is None:
-        top = os.path.abspath(os.getcwd())
+        top = Path.cwd().resolve()
+    else:
+        top = Path(top)
+
     if not isinstance(file_patterns, (list, tuple)):
         file_patterns = [file_patterns]
 
     for i, p in enumerate(file_patterns):
-        if os.path.isabs(p):
-            file_patterns[i] = os.path.relpath(p, top)
+        p = Path(p)
+        if p.is_absolute():
+            file_patterns[i] = str(p.relative_to(top))
 
     matchers = [_compile_pattern(p) for p in file_patterns]
 
     files = set()
 
-    for root, dirnames, filenames in os.walk(top):
+    for root, dirnames, filenames in os.walk(str(top)):
         # Don't recurse into node_modules
         if "node_modules" in dirnames:
             dirnames.remove("node_modules")
         for m in matchers:
             for filename in filenames:
-                fn = os.path.relpath(_glob_pjoin(root, filename), top)
-                fn = fn.replace(os.sep, "/")
+                fn = Path(_glob_pjoin(root, filename)).relative_to(top)
+                fn = fn.as_posix()
                 if m(fn):
                     files.add(fn)
 
@@ -863,8 +914,11 @@ def _get_files(file_patterns, top=None):
     current_version=__version__,
     details="Use `npm_builder` and `wrap_installers`",
 )
-def _get_package_data(root, file_patterns=None):
+def _get_package_data(
+    root: Union[str, Path], file_patterns: Union[str, List[str]] = None
+) -> List[str]:
     """Expand file patterns to a list of `package_data` paths.
+
     Parameters
     -----------
     root: str
@@ -874,15 +928,16 @@ def _get_package_data(root, file_patterns=None):
         The globs can be recursive if they include a `**`.
         They should be relative paths from the root or
         absolute paths.  If not given, all files will be used.
+
     Note:
     Files in `node_modules` are ignored.
     """
     if file_patterns is None:
         file_patterns = ["*"]
-    return _get_files(file_patterns, _glob_pjoin(os.path.abspath(os.getcwd()), root))
+    return _get_files(file_patterns, _glob_pjoin(Path.cwd().resolve(), root))
 
 
-def _compile_pattern(pat, ignore_case=True):
+def _compile_pattern(pat: str, ignore_case=True) -> Callable:
     """Translate and compile a glob pattern to a regular expression matcher."""
     if isinstance(pat, bytes):
         pat_str = pat.decode("ISO-8859-1")
@@ -896,9 +951,10 @@ def _compile_pattern(pat, ignore_case=True):
 
 def _iexplode_path(path):
     """Iterate over all the parts of a path.
+
     Splits path recursively with os.path.split().
     """
-    (head, tail) = os.path.split(path)
+    (head, tail) = os.path.split(str(path))
     if not head or (not tail and head == path):
         if head:
             yield head
@@ -922,6 +978,7 @@ def _translate_glob(pat):
 
 def _join_translated(translated_parts, os_sep_class):
     """Join translated glob pattern parts.
+
     This is different from a simple join, as care need to be taken
     to allow ** to match ZERO or more directories.
     """
