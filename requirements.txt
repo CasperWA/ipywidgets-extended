@@ -1,2 +1,2 @@
-ipywidgets~=8.0
+ipywidgets>=7.7,<9
 packaging~=21.3

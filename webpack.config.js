@@ -9,82 +9,95 @@ const rules = [
 ];
 
 // Packages that shouldn't be bundled but loaded at runtime
-const externals = ['@jupyter-widgets/base', '@jupyter-widgets/controls'];
+const externals = ['@jupyter-widgets/base', '@jupyter-widgets/controls', 'module'];
 
 const resolve = {
   // Add '.ts' and '.tsx' as resolvable extensions.
   extensions: [".webpack.js", ".web.js", ".ts", ".js"]
 };
 
-module.exports = [
-  /**
-   * Notebook extension
-   *
-   * This bundle only contains the part of the JavaScript that is run on load of
-   * the notebook.
-   */
-  {
-    entry: './src/extension.ts',
-    output: {
-      filename: 'index.js',
-      path: path.resolve(__dirname, 'ipywidgets_extended', 'nbextension', 'static'),
-      libraryTarget: 'amd'
+module.exports = (env, argv) => {
+  const devtool = argv.mode === 'development' ? 'source-map' : false;
+  return [
+    /**
+     * Notebook extension
+     *
+     * This bundle only contains the part of the JavaScript that is run on load of
+     * the notebook.
+     */
+    {
+      entry: './src/extension.ts',
+      output: {
+        filename: 'extension.js',
+        path: path.resolve(__dirname, 'ipywidgets_extended', 'nbextension', 'static'),
+        libraryTarget: 'amd'
+      },
+      devtool,
+      resolve
     },
-    module: {
-      rules: rules
-    },
-    devtool: 'source-map',
-    externals,
-    resolve,
-  },
 
-  /**
-   * Embeddable widget-periodictable bundle
-   *
-   * This bundle is almost identical to the notebook extension bundle. The only
-   * difference is in the configuration of the webpack public path for the
-   * static assets.
-   *
-   * The target bundle is always `dist/index.js`, which is the path required by
-   * the custom widget embedder.
-   */
-  {
-    entry: './src/index.ts',
-    output: {
+    {
+      entry: ['./amd-public-path.js', './src/index.ts'],
+      output: {
         filename: 'index.js',
-        path: path.resolve(__dirname, 'dist'),
+        path: path.resolve(__dirname, 'ipywidgets_extended', 'nbextension', 'static'),
         libraryTarget: 'amd',
-        library: "ipywidgets-extended",
-        publicPath: 'https://unpkg.com/ipywidgets-extended@' + version + '/dist/'
-    },
-    devtool: 'source-map',
-    module: {
+        library: 'ipywidgets-extended',
+        publicPath: '',  // Set in amd-public-path.js
+      },
+      devtool,
+      module: {
         rules: rules
+      },
+      externals,
+      resolve
     },
-    externals,
-    resolve,
-  },
+
+    /**
+     * Embeddable bundle
+     *
+     * This bundle is almost identical to the notebook extension bundle. The only
+     * difference is in the configuration of the webpack public path for the
+     * static assets.
+     */
+    {
+      entry: ['./amd-public-path.js', './src/index.ts'],
+      output: {
+          filename: 'index.js',
+          path: path.resolve(__dirname, 'dist'),
+          libraryTarget: 'amd',
+          library: "ipywidgets-extended",
+          publicPath: ''  // Set in amd-public-path.js, old='https://unpkg.com/ipywidgets-extended@' + version + '/dist/'
+      },
+      devtool,
+      module: {
+          rules: rules
+      },
+      externals,
+      resolve
+    }
 
 
-  /**
-   * Documentation widget bundle
-   *
-   * This bundle is used to embed widgets in the package documentation.
-   */
-  // {
-  //   entry: './src/index.ts',
-  //   output: {
-  //     filename: 'embed-bundle.js',
-  //     path: path.resolve(__dirname, 'docs', 'source', '_static'),
-  //     library: "ipywidgets-extended",
-  //     libraryTarget: 'amd'
-  //   },
-  //   module: {
-  //     rules: rules
-  //   },
-  //   devtool: 'source-map',
-  //   externals,
-  //   resolve,
-  // }
+    /**
+     * Documentation widget bundle
+     *
+     * This bundle is used to embed widgets in the package documentation.
+     */
+    // {
+    //   entry: './src/index.ts',
+    //   output: {
+    //     filename: 'embed-bundle.js',
+    //     path: path.resolve(__dirname, 'docs', 'source', '_static'),
+    //     library: "ipywidgets-extended",
+    //     libraryTarget: 'amd'
+    //   },
+    //   module: {
+    //     rules: rules
+    //   },
+    //   devtool,
+    //   externals,
+    //   resolve,
+    // }
 
-];
+  ];
+}

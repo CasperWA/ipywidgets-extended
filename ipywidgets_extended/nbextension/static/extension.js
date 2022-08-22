@@ -1,5 +1,5 @@
 // Entry point for the notebook bundle containing custom model definitions.
-//
+
 define(function() {
     "use strict";
 
